@@ -91,6 +91,10 @@
                         
                         const actionsElement = document.createElement('div');
                         actionsElement.className = 'file-actions';
+
+                        const downloadButton = document.createElement('button');
+                        downloadButton.textContent = 'Download';
+                        downloadButton.onclick = () => downloadSelectedFiles(file);
                         
                         const selectButton = document.createElement('button');
                         selectButton.textContent = 'Select';
@@ -101,6 +105,7 @@
                         deleteButton.className = 'delete-button';
                         deleteButton.onclick = () => deleteDirectory(file);
 
+                        actionsElement.appendChild(downloadButton);
                         actionsElement.appendChild(selectButton);
                         actionsElement.appendChild(deleteButton);
                         fileElement.appendChild(actionsElement);
@@ -116,6 +121,50 @@
             window.opener.postMessage(directory, window.location.origin);
             window.close();
         }
+
+        async function downloadSelectedFiles(directory) {
+            try {
+                // Indica ao usuário que o download está em andamento
+                const downloadButton = event.target;
+                downloadButton.textContent = 'Baixando...';
+                downloadButton.disabled = true;
+
+                // Busca o arquivo ZIP no servidor
+                const response = await fetch(`/download-project?directory=${encodeURIComponent(directory)}`);
+
+                // Verifica se a resposta é bem-sucedida
+                if (!response.ok) {
+                    throw new Error(`Erro no download: ${response.statusText}`);
+                }
+
+                // Obtém o conteúdo do arquivo ZIP como um Blob
+                const blob = await response.blob();
+
+                // Cria um link temporário para download
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `${directory}.zip`; // Nome do arquivo ZIP
+                document.body.appendChild(link); // Necessário para o Firefox
+                link.click(); // Inicia o download
+
+                // Remove o link após o download
+                link.remove();
+                URL.revokeObjectURL(link.href);
+
+                // Indica ao usuário que o download foi concluído
+                downloadButton.textContent = 'Download';
+                downloadButton.disabled = false;
+            } catch (error) {
+                console.error('Erro ao baixar o projeto:', error);
+                // Lida com o erro de forma apropriada (ex: mostra uma mensagem ao usuário)
+                alert('Ocorreu um erro ao tentar baixar o projeto. Por favor, tente novamente.');
+                // Restaura o estado original do botão em caso de erro
+                const downloadButton = event.target;
+                downloadButton.textContent = 'Download';
+                downloadButton.disabled = false;
+            }
+        }
+
 
         async function deleteDirectory(directory) {
             try {

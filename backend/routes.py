@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, render_template, send_from_directory
+from flask import Blueprint, request, jsonify, render_template, send_from_directory, send_file
 from flask_login import login_user, login_required, logout_user, current_user
 from backend.file import *
 from backend.db import mysql
@@ -9,6 +9,7 @@ from backend.projectresume import processar_e_resumir_arquivos, salvar_resumo_em
 from io import BytesIO
 import os
 import shutil
+import zipfile
 
 
 login_routes = Blueprint("login_routes", __name__)
@@ -300,11 +301,11 @@ def project_input():
 
 @index_routes.route('/download/<filename>')
 def download_file(filename):
-    return send_from_directory("C:/Users/muril/Music/Projeto SEC Estagio/LLM-SEC/", filename)
+    return send_from_directory("", filename)
 
 @index_routes.route('/list-directory', methods=['GET'])
 def list_directory():
-    directory_path = "C:/Users/muril/Music/Projeto SEC Estagio/LLM-SEC/backend/projects"
+    directory_path = "backend\projects"
     print(directory_path)
     try:
         files = os.listdir(directory_path)
@@ -327,3 +328,26 @@ def delete_directory():
             return jsonify({'error': 'Directory not found'}), 404
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@index_routes.route('/download-project', methods=['GET'])
+def download_project():
+    directory = request.args.get('directory')
+    directory_path = os.path.join('projects', directory)
+    directory_path = os.path.join('backend', directory_path)
+    print("DIRETÓRIO: ", directory_path)
+
+    if not os.path.exists(directory_path):
+        return jsonify(error='Diretório não encontrado'), 404
+
+    # Cria um arquivo ZIP na memória
+    memory_file = BytesIO()
+    with zipfile.ZipFile(memory_file, 'w') as zf:
+        for root, dirs, files in os.walk(directory_path):
+            for file in files:
+                file_path = os.path.join(root, file)
+                arcname = os.path.relpath(file_path, directory_path)
+                zf.write(file_path, arcname)
+
+    memory_file.seek(0)
+    return send_file(memory_file, mimetype='application/zip', as_attachment=True, download_name=f'{directory}.zip')
